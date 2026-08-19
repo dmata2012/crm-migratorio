@@ -41,3 +41,6 @@ yarn-error.log*
 next-env.d.ts
 archivos/
 .env
+
+# El ejemplo sí se versiona: documenta las variables, sin secretos.
+!.env.example
