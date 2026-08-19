@@ -1,0 +1,53 @@
+# Despliegue en Render. Con este archivo en la raíz del repositorio, Render
+# arma todo solo: panel → New → Blueprint → elegir el repositorio → Apply.
+#
+# No hay que capturar variables a mano: la base de datos se crea aquí y su
+# cadena de conexión se inyecta sola en el servicio.
+
+databases:
+  - name: crm-migratorio-db
+    databaseName: crm
+    user: crm
+    region: oregon
+    # Plan de pago: las bases gratuitas de Render caducan y se eliminan, lo que
+    # con expedientes de clientes no es opción. Si Render no reconoce este
+    # nombre de plan, elige el que ofrezca en el panel al aplicar el blueprint.
+    plan: basic-256mb
+
+services:
+  - type: web
+    name: crm-migratorio
+    runtime: node
+    # Plan de pago: el gratuito duerme el servicio tras unos minutos sin uso.
+    plan: starter
+    region: oregon
+    buildCommand: npm ci && npx prisma generate && npx prisma migrate deploy && npm run build
+    startCommand: npm run start
+    healthCheckPath: /ingresar
+
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+
+      # La cadena de conexión la toma de la base declarada arriba. No se
+      # escribe a mano ni queda en el repositorio.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: crm-migratorio-db
+          property: connectionString
+
+      # Clave con la que se firman las sesiones. Render la genera sola.
+      - key: AUTH_SECRET
+        generateValue: true
+
+      # Carpeta de documentos, dentro del disco persistente de abajo.
+      - key: RUTA_ARCHIVOS
+        value: /var/data/archivos
+
+    # Los documentos de los clientes (pasaportes, actas) viven aquí. Sin este
+    # disco se borrarían en cada despliegue, porque el disco de la aplicación
+    # es efímero. Súbelo de tamaño cuando haga falta; no se puede reducir.
+    disk:
+      name: documentos
+      mountPath: /var/data
+      sizeGB: 5
